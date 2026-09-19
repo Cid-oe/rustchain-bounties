@@ -103,22 +103,24 @@ def ensure_label(owner: str, repo: str, headers: dict) -> None:
     resp = requests.get(f"{API}/repos/{owner}/{repo}/labels/{LABEL_NAME}", headers=headers, timeout=30)
     if resp.status_code == 200:
         return
-    requests.post(
+    resp2 = requests.post(
         f"{API}/repos/{owner}/{repo}/labels",
         headers=headers,
         json={"name": LABEL_NAME, "color": LABEL_COLOR, "description": LABEL_DESCRIPTION},
         timeout=30,
     )
+    resp2.raise_for_status()
 
 
 def apply_label(owner: str, repo: str, pr_number: int, headers: dict) -> None:
     ensure_label(owner, repo, headers)
-    requests.post(
+    resp = requests.post(
         f"{API}/repos/{owner}/{repo}/issues/{pr_number}/labels",
         headers=headers,
         json={"labels": [LABEL_NAME]},
         timeout=30,
     )
+    resp.raise_for_status()
 
 
 def post_comment(owner: str, repo: str, pr_number: int, protected_hits: Iterable[str], author: str, headers: dict) -> None:
@@ -138,12 +140,13 @@ def post_comment(owner: str, repo: str, pr_number: int, protected_hits: Iterable
         "legitimate and intentional, a maintainer can dismiss this and merge "
         "normally."
     )
-    requests.post(
+    resp = requests.post(
         f"{API}/repos/{owner}/{repo}/issues/{pr_number}/comments",
         headers=headers,
         json={"body": body},
         timeout=30,
     )
+    resp.raise_for_status()
 
 
 def main() -> None:
@@ -167,8 +170,7 @@ def main() -> None:
 
     pr = event.get("pull_request")
     if not pr:
-        print("No pull_request in event payload, nothing to do.")
-        return
+        sys.exit("No pull_request in event payload, but this script is only for PR validation")
 
     owner, repo = repo_slug.split("/", 1)
     pr_number = pr["number"]

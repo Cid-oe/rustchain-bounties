@@ -129,9 +129,8 @@ def add_labels(*names):
                             f"/repos/{REPO}/issues/{NUM}/labels", "-f", f"labels[]={n}"],
                            capture_output=True, text=True, timeout=60)
         if r.returncode != 0:
-            print(f"::warning::could not apply label {n}: {r.stderr.strip()[:120]}")
-            ok = False
-    return ok
+            import sys
+            sys.exit(f'::error::could not apply label {n}: {r.stderr.strip()[:120]}')
 
 
 
@@ -145,7 +144,7 @@ def docstring_rtc_this_week(author):
     since = (datetime.datetime.now(datetime.timezone.utc)
              - datetime.timedelta(days=7)).strftime("%Y-%m-%d")
     q = (f"repo:{REPO} is:issue author:{author} label:docstring-verified "
-         f"created:>{since}")
+         f"updated:>{since}")
     res = gh(["api", "-X", "GET", "search/issues", "-f", f"q={q}", "-f", "per_page=100"], {}, strict=True)
     total = 0.0
     for it in (res.get("items") or []):
@@ -224,7 +223,7 @@ def main():
     if not m:
         gh(["issue", "comment", NUM, "-R", REPO, "--body",
             "🤖 Docstring gate: no pull request URL found in this claim. Add the full "
-            "`https://github.com/<owner>/<repo>/pull/<n>` link and it will be re-checked."], None)
+            "`https://github.com/<owner>/<repo>/pull/<n>` link and it will be re-checked."], None, strict=True)
         add_labels("needs-human")
         return 0
     pr_repo, pr_num = m.group(1), m.group(2)
@@ -233,7 +232,7 @@ def main():
              "--json", "state,additions,deletions,files,author,mergedAt"], {})
     if not pr:
         gh(["issue", "comment", NUM, "-R", REPO, "--body",
-            f"🤖 Docstring gate: could not read {pr_repo}#{pr_num}. Flagged for a human."], None)
+            f"🤖 Docstring gate: could not read {pr_repo}#{pr_num}. Flagged for a human."], None, strict=True)
         add_labels("needs-human")
         return 0
 
@@ -242,7 +241,7 @@ def main():
             f"🤖 Docstring gate: {pr_repo}#{pr_num} is **{pr.get('state','OPEN').lower()}**, not merged.\n\n"
             f"Docstring bounties pay on merge, because until then the documentation is not in the "
             f"codebase. This claim is not closed — it will be re-checked automatically once the PR "
-            f"lands, and you do not need to re-file it."], None)
+            f"lands, and you do not need to re-file it."], None, strict=True)
         add_labels("awaiting-merge")
         print(f"{pr_repo}#{pr_num} not merged ({pr.get('state')}); waiting")
         return 0
@@ -259,7 +258,7 @@ def main():
         gh(["issue", "comment", NUM, "-R", REPO, "--body",
             f"🤖 Docstring gate: {pr_repo}#{pr_num} is merged, but no added lines in it open a "
             f"docstring ({total_added} lines added in total). If the work is real and the gate has "
-            f"misread it, say so here and a human will look."], None)
+            f"misread it, say so here and a human will look."], None, strict=True)
         add_labels("needs-human")
         return 0
 
@@ -275,7 +274,7 @@ def main():
             f"weekly-earnings lookup failed, so the {MAX_RTC_PER_WEEK:g} RTC/week cap cannot be "
             f"checked right now.\n\nHolding rather than approving — a failed lookup is not proof "
             f"that you have earned nothing. This retries automatically on the next sweep; you do "
-            f"not need to do anything."], None)
+            f"not need to do anything."], None, strict=True)
         add_labels("needs-human")
         print(f"::error::earnings lookup failed, refusing to approve: {e}")
         return 0
@@ -294,7 +293,7 @@ def main():
             f"40 RTC/week is roughly the top of what any contributor earns across all bounty types. "
             f"It is not a judgement on the quality of your work, which has been consistently fine.\n\n"
             f"If you want higher-value work, the bounty board has open items at 7 to 35 RTC each "
-            f"that are not rate-limited."], None)
+            f"that are not rate-limited."], None, strict=True)
         print(f"weekly cap: {author} at {already} + {amount} > {MAX_RTC_PER_WEEK}")
         return 0
 
@@ -302,7 +301,7 @@ def main():
         gh(["issue", "comment", NUM, "-R", REPO, "--body",
             f"🤖 Docstring gate: verified **{doc_count} docstrings** in {pr_repo}#{pr_num}, which at "
             f"{RATE} RTC each comes to {amount} RTC. That is above the {MAX_RTC} RTC auto-pay ceiling, "
-            f"so it needs a human to release it. Nothing is wrong with the claim."], None)
+            f"so it needs a human to release it. Nothing is wrong with the claim."], None, strict=True)
         add_labels("needs-human")
         return 0
 
@@ -323,7 +322,7 @@ def main():
             f"(GitHub label API error), so this is **held**, not verified. PR {pr_repo}#{pr_num} is "
             f"merged with **{doc_count}** docstrings → **{amount} RTC** once a human or the next "
             f"sweep applies `bounty-eligible` + `docstring-verified`. Nothing is wrong with the "
-            f"claim; the gate is refusing to say 'verified' about a state it did not create."], None)
+            f"claim; the gate is refusing to say 'verified' about a state it did not create."], None, strict=True)
         add_labels("needs-human")
         print(f"::error::labels not applied on {REPO}#{NUM}; held, not verified")
         return 1
@@ -335,7 +334,7 @@ def main():
         f"- Rate {RATE} RTC each → **{amount} RTC**{note}\n\n"
         f"<!-- rtc-payout-amount: {amount} -->\n"
         f"Queued for payout. The balance moves after the standard confirmation window, not on this "
-        f"comment."], None)
+        f"comment."], None, strict=True)
     print(f"verified {doc_count} docstrings -> {amount} RTC on {REPO}#{NUM}")
     return 0
 

@@ -288,7 +288,7 @@ def is_substantive_review(review, inline_count=0):
 def comment(n, body): api(f"/repos/{REPO}/issues/{n}/comments","POST",{"body":body})
 def add_label(n, lab): api(f"/repos/{REPO}/issues/{n}/labels","POST",{"labels":[lab]})
 def close(n, reason_comment):
-    comment(n, reason_comment); api(f"/repos/{REPO}/issues/{n}","PATCH",{"state":"closed","state_reason":"not_planned"})
+    api(f"/repos/{REPO}/issues/{n}","PATCH",{"state":"closed","state_reason":"not_planned"}); comment(n, reason_comment)
 
 def _unresolved(msg, quiet):
     """Flag a claim the gate could not decide.
@@ -304,8 +304,8 @@ def _unresolved(msg, quiet):
     comment(NUM, msg)
 
 def main():
-    iss=api(f"/repos/{REPO}/issues/{NUM}")
-    if not iss or iss.get("state")!="open": return
+    iss = api(f"/repos/{REPO}/issues/{NUM}", strict=True)
+    if not iss or iss.get("state") != "open": return
     labels={l["name"] for l in iss.get("labels",[])}
     # Idempotency, with one deliberate exception.
     #
@@ -351,7 +351,7 @@ def main():
             _unresolved(f"🤖 Gate: claim references a PR outside the maintainer's repos ({claim_repo}#{pr}). Flagged for human review.", quiet); return
     if native_wallet(body) is False:
         close(NUM,"🤖 Gate: payout must be a **native RTC wallet** (`RTC…`) — RTC has no off-ramp, no Solana/ETH bridge. Reopen with a native wallet."); return
-    reviews=api(f"/repos/{target}/pulls/{pr}/reviews")
+    reviews=api(f"/repos/{target}/pulls/{pr}/reviews", strict=True)
     if reviews is None and not claim_repo:
         # The default target was an assumption, not a statement by the
         # claimant. Before giving up, honour a repo named in prose
@@ -362,7 +362,7 @@ def main():
         if cand and cand.lower() != target.split("/")[1].lower():
             owner = TARGET.split("/")[0]
             alt = f"{owner}/{cand}"
-            alt_reviews = api(f"/repos/{alt}/pulls/{pr}/reviews")
+            alt_reviews = api(f"/repos/{alt}/pulls/{pr}/reviews", strict=True)
             if alt_reviews is not None:
                 target, reviews = alt, alt_reviews
     if reviews is None:
