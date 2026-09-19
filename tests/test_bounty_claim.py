@@ -105,9 +105,9 @@ class ActiveClaimTests(unittest.TestCase):
 
         def mock_gh(args, default=None):
             calls.append(args)
-            if "page=1" in args[1]:
+            if args[1].endswith("&page=1"):
                 return page1
-            elif "page=2" in args[1]:
+            elif args[1].endswith("&page=2"):
                 return page2
             return []
 
